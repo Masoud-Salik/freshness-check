@@ -48,6 +48,7 @@ function Checker() {
     setNotice(sample ? null : "Live checking isn't connected yet, so only the sample answers produce a report right now. Your text hasn't been checked.");
     setStep(-1);
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    return undefined;
   }, [step, running, sample]);
 
   const run = () => { setReport(null); setNotice(null); setFilter("all"); setStep(0); };

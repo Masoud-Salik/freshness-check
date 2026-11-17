@@ -43,7 +43,7 @@ describe("status", () => {
   });
   it("newer value without historical proof is contradicted, not outdated", () => {
     const e = [ev({ stance: "contradicts", originKey: "a" }), ev({ stance: "contradicts", originKey: "b" })];
-    const r = assessClaim(claim, e, j({ support: "contradicts", previouslyCorrect: "yes" }, [e[0].url]), "");
+    const r = assessClaim(claim, e, j({ support: "contradicts", previouslyCorrect: "yes" }, [e[0]!.url]), "");
     expect(r.status).toBe("contradicted");
   });
   it("contradiction + cited historical evidence is potentially outdated", () => {
@@ -51,12 +51,12 @@ describe("status", () => {
       ev({ stance: "contradicts", originKey: "a" }), ev({ stance: "contradicts", originKey: "b" }),
       ev({ stance: "neutral", originKey: "a", historical: true }),
     ];
-    const r = assessClaim(claim, e, j({ support: "contradicts", previouslyCorrect: "yes" }, [e[0].url, e[2].url]), "");
+    const r = assessClaim(claim, e, j({ support: "contradicts", previouslyCorrect: "yes" }, [e[0]!.url, e[2]!.url]), "");
     expect(r.status).toBe("potentially_outdated");
   });
   it("low-confidence contradiction is unverified", () => {
     const e = [ev({ stance: "contradicts", tier: 4 })];
-    expect(assessClaim(claim, e, j({ support: "contradicts" }, [e[0].url]), "").status).toBe("unverified");
+    expect(assessClaim(claim, e, j({ support: "contradicts" }, [e[0]!.url]), "").status).toBe("unverified");
   });
   it("uncited verdict becomes unverified", () => {
     expect(assessClaim(claim, [ev({})], j({}, ["https://made-up.com"]), "").status).toBe("unverified");
