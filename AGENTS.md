@@ -32,9 +32,9 @@ use the editor.
 ## FreshCheck AI architecture rules
 
 - One TypeScript app (TanStack Start); no separate Python backend. Why: Lovable can't run FastAPI, and one deployment means no CORS and secrets stay server-side.
-- All LLM calls go through one Bifrost helper (OpenAI-compatible endpoint), with the model name taken from config per task. Why: models can be swapped without code changes, and Bifrost is a required integration.
+- All model calls go through Lovable's managed AI gateway from server-only helpers; use one adapter and a configurable model name. Do not add a second gateway unless the deployment owner explicitly chooses it.
 - Web evidence comes only from Tavily via one client module. Why: a single, auditable research path.
 - Status, confidence and independence are computed by deterministic code in `src/lib/freshcheck/score.ts`, never by the LLM; changes there need tests in `score.test.ts`. Why: verdicts must be transparent and testable.
 - "Potentially outdated" needs a current contradiction plus a cited historical source; a newer value alone gives "contradicted". Why: we never assume a claim was once true.
 - Independence counts distinct `originKey`s (provenance), not URLs or domains; quality tier comes from a curated publisher map, not the TLD. Why: syndicated copies must not inflate confidence.
-- Pipeline is orchestrated from the client: one server call to extract claims, then one call per claim (search + judge), about 3 at a time. Why: it keeps each edge request short and well under per-request subrequest and time limits (exact limits to be confirmed when Bifrost goes live).
+- Pipeline is orchestrated through two server functions: extract claims, then verify up to 8 user-selected claims with concurrency capped at 3. Confirm deployed runtime time/subrequest limits and add distributed rate limiting before public launch.
