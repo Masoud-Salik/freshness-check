@@ -1,20 +1,30 @@
-# FreshCheck AI roadmap
+# FreshCheck AI — competition roadmap
 
-## Windows-first product polish
-- [x] Desktop-first checker layout with wider reading canvas and clearer navigation
-- [x] Explicit original-answer date field (optional) for historical context
-- [x] Honest demo/live status: pasted non-sample text is never presented as checked
-- [x] Character limit and claim limit communicated before a check
-- [ ] Desktop QA at 1280px, 1440px and 1920px; keyboard-only and screen-reader pass
+## Implemented in the live-engine branch
+- [x] Windows-first desktop layout and clearer navigation
+- [x] Guided two-stage workflow: extract claims, then review/select before search
+- [x] Up to 12 extracted claims and 8 selected claims per run
+- [x] Server-only Tavily and managed AI gateway requests
+- [x] Bounded request timeouts and three-way claim concurrency
+- [x] Deterministic source-quality, citation, relevance and confidence checks
+- [x] Conservative outdated verdict requiring dated historical support and later contradiction
+- [x] Separate stable and user-skipped statuses
+- [x] Sample reports explicitly labeled as examples
 
-## Live verification
-- [ ] Bifrost live — requires deployed gateway URL, gateway key and configured model provider
-- [ ] Claim extraction via Bifrost with schema validation and 12-claim cap
-- [ ] Tavily evidence search, search planning and source provenance — requires server-side Tavily secret
-- [ ] Per-claim judging, citation allow-list validation and deterministic scoring
-- [ ] Partial results, timeouts, retries, rate-limit messaging and request budget
-- [ ] Evaluation dataset, false-outdated metric and published methodology results
-- [ ] Publish after live-path and failure-mode QA
+## Must complete before competition submission
+- [ ] Run Windows CI: lint, tests, build
+- [ ] Add integration tests with mocked Tavily and AI gateway responses
+- [ ] Add real end-to-end test in Lovable preview with Tavily secret configured
+- [ ] Upgrade origin grouping to Public Suffix List (avoid false source independence)
+- [ ] Expand and manually review source-quality registry by topic/country
+- [ ] Add extraction and judgment benchmark with labeled ground truth
+- [ ] Measure precision, recall, citation validity, false-outdated rate, latency and cost
+- [ ] Add robust distributed rate limiting and abuse controls
+- [ ] Add retry policy for transient upstream errors, respecting request budgets
+- [ ] Improve date extraction and conflicting-date handling
+- [ ] Keyboard/screen-reader audit and Windows 1280/1440/1920 QA
+- [ ] Privacy copy and clear data-retention policy
+- [ ] Publish methodology and benchmark results
 
-## MVP scope
-No accounts, saved history, browser extension, public API, batch jobs, monitoring, team workspaces or PDF export in the first release.
+## Explicitly out of MVP scope
+Accounts, saved history, browser extension, public API, batch jobs, monitoring, team workspaces and PDF export.
