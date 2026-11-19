@@ -8,7 +8,7 @@ import { ClaimDetail } from "@/components/freshcheck/ClaimDetail";
 import { STATUS_STYLE } from "@/components/freshcheck/StatusBadge";
 import { SAMPLES } from "@/lib/freshcheck/demo";
 import { STATUS_LABEL } from "@/lib/freshcheck/labels";
-import { STATUS_ORDER } from "@/lib/freshcheck/score";
+import { STATUS_ORDER, summarize } from "@/lib/freshcheck/score";
 import { extractClaims, verifyClaims, getFreshCheckStatus } from "@/lib/freshcheck/server";
 import type { Claim, ClaimResult, Report, VerificationStatus } from "@/lib/freshcheck/types";
 import { cn } from "@/lib/utils";
@@ -86,8 +86,7 @@ function Checker() {
         independentSources: 0, status: (claim.needsVerification ? "skipped" : "stable") as VerificationStatus, checkedAt: result.assessedAt,
       }));
       const combined = { ...result, results: [...result.results, ...skipped] };
-      const counts = { ...result.summary.counts, skipped: skipped.length };
-      combined.summary = { ...result.summary, total: combined.results.length, counts };
+      combined.summary = summarize(combined.results);
       setReport(combined);
       window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     } catch (error) {
