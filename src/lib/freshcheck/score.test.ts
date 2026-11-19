@@ -119,6 +119,13 @@ describe("citation and status safety", () => {
     expect(result.status).toBe("unverified");
   });
 
+  it("historical support does not count as current opposition to an outdated verdict", () => {
+    const historical = ev({ domain: "old.example", stance: "supports", historical: true, publishedDate: "2025-01-01" });
+    const current = ev({ domain: "new.example", stance: "contradicts", publishedDate: "2026-10-01" });
+    const verdict = judgment({ support: "contradicts" }, [historical.url, current.url]);
+    expect(computeConfidence([historical, current], verdict)).toBe("high");
+  });
+
   it("requires dated historical support and later contradiction for outdated", () => {
     const historical = ev({
       domain: "archive.example",
