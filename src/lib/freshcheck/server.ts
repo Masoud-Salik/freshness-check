@@ -118,14 +118,14 @@ async function search(claim: Claim): Promise<Evidence[]> {
       method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: secret("TAVILY_API_KEY"),
-        query: (claim.text + " official current information " + (claim.sourceTypeHint || "")).slice(0, 390),
+        query: (claim.text + (claim.sourceTypeHint ? " " + claim.sourceTypeHint : "")).slice(0, 390),
         topic: claim.category === "news" ? "news" : "general",
         search_depth: claim.freshnessRisk === "high" ? "advanced" : "fast",
-        max_results: 6, include_answer: false, include_raw_content: false,
+        max_results: 6, include_answer: false, include_raw_content: claim.freshnessRisk === "high",
       }),
     });
     if (!response.ok) throw new Error("Web search service returned " + response.status);
-    const payload = await response.json() as { results?: Array<{ title?: string; url?: string; content?: string; score?: number; published_date?: string }> };
+    const payload = await response.json() as { results?: Array<{ title?: string; url?: string; content?: string; score?: number; published_date?: string; raw_content?: string }> };
     return (payload.results || []).flatMap((row) => {
       const url = safeUrl(row.url);
       if (!url) return [];
@@ -134,7 +134,7 @@ async function search(claim: Claim): Promise<Evidence[]> {
         url: url.toString(), title: str(row.title, 240) || url.hostname,
         domain: url.hostname.replace(/^www\./, ""), tier: sourceTier(url.hostname),
         relevance: typeof row.score === "number" ? Math.max(0, Math.min(1, row.score)) : 0,
-        originKey: origin(url.hostname), publishedDate: date, snippet: str(row.content, 1200) || "",
+        originKey: origin(url.hostname), publishedDate: date, snippet: str(row.raw_content, 5000) || str(row.content, 1200) || "",
         stance: "neutral" as const, historical: false, retrievedAt: new Date().toISOString(),
       }];
     });
