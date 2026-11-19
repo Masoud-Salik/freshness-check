@@ -33,7 +33,8 @@ const mixed = (): Report => {
     e({ url: "https://devblog.example/acme-orders", title: "Using Acme's orders API", domain: "devblog.example", tier: 4, originKey: "docs.acme.example", publishedDate: "2026-09-01", stance: "supports", snippet: "Per Acme's docs, GET /v1/orders lists orders." }),
   ];
   const ev3 = [
-    e({ url: "https://acme.example/pricing", title: "Acme Cloud pricing", domain: "acme.example", stance: "neutral", publishedDate: null, snippet: "Starter — $20/mo · 25 GB storage" }),
+    e({ url: "https://acme.example/pricing", title: "Acme Cloud pricing", domain: "acme.example", stance: "supports", publishedDate: "2026-09-01", snippet: "Starter — $20/mo." }),
+    e({ url: "https://docs.acme.example/storage", title: "Acme Cloud storage limits", domain: "docs.acme.example", stance: "contradicts", publishedDate: "2026-09-01", snippet: "Starter includes 25 GB storage." }),
   ];
   const ev4 = [
     e({ url: "https://acme.example/about/leadership", title: "Leadership — Acme", domain: "acme.example", stance: "contradicts", publishedDate: "2026-07-01", snippet: "Chief Executive Officer: Sam Okafor" }),
