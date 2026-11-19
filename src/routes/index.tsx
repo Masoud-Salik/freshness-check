@@ -128,11 +128,11 @@ function Checker() {
           onChange={(event) => { setText(event.target.value.slice(0, MAX)); reset(); }}
           placeholder="Paste an answer from ChatGPT, Claude, Gemini, or another AI assistant…"
           className="min-h-56 resize-y border-0 bg-transparent p-1 text-[0.95rem] leading-relaxed shadow-none focus-visible:ring-0"
-          aria-describedby="answer-help" />
+          disabled={!!busy} aria-describedby="answer-help" />
         <div id="answer-help" className="mt-3 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
           <div className="space-y-2">
             <label htmlFor="answer-date" className="block text-xs font-medium text-muted-foreground">When was the original answer written? <span className="font-normal">(optional)</span></label>
-            <input id="answer-date" type="date" value={answerDate} onChange={(event) => { setAnswerDate(event.target.value); reset(); }}
+            <input id="answer-date" type="date" value={answerDate} disabled={!!busy} onChange={(event) => { setAnswerDate(event.target.value); reset(); }}
               className="h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             <p className="text-xs text-muted-foreground">Useful for judging whether a fact changed after the answer was written.</p>
           </div>
@@ -147,7 +147,7 @@ function Checker() {
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
           <span className="mr-1 text-xs text-muted-foreground">Try a sample:</span>
           {SAMPLES.map((item) => (
-            <button key={item.id} onClick={() => { setText(item.text); reset(); }}
+            <button key={item.id} disabled={!!busy} onClick={() => { setText(item.text); reset(); }}
               className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors",
                 sample?.id === item.id ? "border-primary bg-accent text-accent-foreground" : "border-border text-foreground hover:bg-secondary")}>
               {item.label}
