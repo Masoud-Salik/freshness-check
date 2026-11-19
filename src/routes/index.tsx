@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Check, ChevronRight, LoaderCircle, RotateCcw, ShieldCheck } from "lucide-react";
+import { AlertCircle, ChevronRight, LoaderCircle, RotateCcw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ClaimCard } from "@/components/freshcheck/ClaimCard";
