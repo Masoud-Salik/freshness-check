@@ -91,8 +91,8 @@ export const extractClaims = createServerFn({ method: "POST" })
 function sourceTier(host: string): SourceTier {
   const domain = host.toLowerCase().replace(/^www\./, "");
   const matches = (list: string[]) => list.some((d) => domain === d || domain.endsWith("." + d));
-  if (["gov","mil"].includes(domain.split(".").pop() || "") || matches(["gov.uk","europa.eu","who.int","un.org","worldbank.org","oecd.org","nist.gov","nih.gov","sec.gov","congress.gov"])) return 1;
-  if (domain.endsWith(".edu") || matches(["arxiv.org","nature.com","science.org","ieee.org","acm.org","imf.org","ilo.org"])) return 2;
+  if (["gov","mil"].includes(domain.split(".").pop() || "") || matches(["gov.uk","legislation.gov.uk","canada.ca","australia.gov.au","europa.eu","who.int","un.org","worldbank.org","oecd.org","nist.gov","nih.gov","sec.gov","congress.gov","bls.gov","census.gov","cdc.gov","fda.gov","ec.europa.eu"])) return 1;
+  if (domain.endsWith(".edu") || matches(["arxiv.org","nature.com","science.org","ieee.org","acm.org","imf.org","ilo.org","npmjs.com","pypi.org","crates.io","rubygems.org","docs.python.org","developer.mozilla.org","learn.microsoft.com","developer.apple.com","docs.aws.amazon.com","cloud.google.com","docs.github.com","platform.openai.com","ai.google.dev","nodejs.org","bun.sh","docs.stripe.com"])) return 2;
   if (matches(["reuters.com","apnews.com","bbc.com","bbc.co.uk","ft.com","nytimes.com","theguardian.com","bloomberg.com"])) return 3;
   return 4;
 }
