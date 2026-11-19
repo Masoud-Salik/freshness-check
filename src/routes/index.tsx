@@ -155,12 +155,15 @@ function Checker() {
           ))}
           {sample && <button onClick={() => { const demo = sample.build(); setReport(demo); setClaims([]); setSelected([]); setNotice(null); }}
             className="ml-auto text-xs text-primary underline-offset-2 hover:underline">Preview sample report</button>}
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">When you continue, your answer and selected claims are sent to FreshCheck’s AI and web-search providers to perform the check. They are not saved in a FreshCheck account.</p>
         </div>
       </section>
 
       {notice && <div role="status" className="mt-5 flex gap-3 rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
         <AlertCircle className="mt-0.5 size-4 shrink-0" /> <span>{notice}</span>
       </div>}
+
+      {claims.length > 0 && checkable === 0 && !report && <div className="mt-6 rounded-md border border-border bg-muted px-4 py-4 text-sm text-muted-foreground"><p className="font-medium text-foreground">No changing factual claims need a search</p><p className="mt-1">The extracted items appear stable or non-factual. You can paste a different answer or preview a sample report.</p></div>}
 
       {claims.length > 0 && !report && (
         <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
