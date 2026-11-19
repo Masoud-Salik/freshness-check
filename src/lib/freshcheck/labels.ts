@@ -4,9 +4,10 @@ export const STATUS_LABEL: Record<VerificationStatus, string> = {
   current: "Current and supported",
   partially_supported: "Partially supported",
   potentially_outdated: "Potentially outdated",
-  contradicted: "Contradicted by current evidence",
+  contradicted: "Contradicted",
   unverified: "Unverified",
-  stable: "Stable information",
+  stable: "Stable — not searched",
+  skipped: "Skipped by you",
 };
 
 export const STATUS_SHORT: Record<VerificationStatus, string> = {
@@ -16,6 +17,7 @@ export const STATUS_SHORT: Record<VerificationStatus, string> = {
   contradicted: "Contradicted",
   unverified: "Unverified",
   stable: "Stable",
+  skipped: "Skipped",
 };
 
 export const CATEGORY_LABEL: Record<ClaimCategory, string> = {
@@ -32,10 +34,9 @@ export const CATEGORY_LABEL: Record<ClaimCategory, string> = {
 };
 
 export const LEVEL_LABEL: Record<Level, string> = { low: "Low", medium: "Medium", high: "High" };
-
 export const TIER_LABEL: Record<SourceTier, string> = {
   1: "Official / primary",
   2: "Institutional",
   3: "Reputable news",
-  4: "Other",
+  4: "Other / unclassified",
 };

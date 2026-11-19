@@ -26,20 +26,21 @@ const mixed = (): Report => {
   const ev1 = [
     e({ url: "https://fetchkit.dev/changelog", title: "fetchkit changelog", domain: "fetchkit.dev", publishedDate: "2026-10-02", stance: "contradicts", snippet: "4.0.0 (2026-10-02): new streaming API. 3.2.0 (2025-03-11)…" }),
     e({ url: "https://registry.example/pkg/fetchkit", title: "fetchkit — package registry", domain: "registry.example", tier: 2, publishedDate: "2026-10-02", stance: "contradicts", snippet: "Latest version: 4.0.1" }),
-    e({ url: "https://fetchkit.dev/changelog#3.2.0", title: "fetchkit 3.2.0 release notes", domain: "fetchkit.dev", publishedDate: "2025-03-11", stance: "neutral", historical: true, snippet: "3.2.0 released 2025-03-11 (latest at the time)." }),
+    e({ url: "https://fetchkit.dev/changelog#3.2.0", title: "fetchkit 3.2.0 release notes", domain: "fetchkit.dev", publishedDate: "2025-03-11", stance: "supports", historical: true, snippet: "3.2.0 released 2025-03-11 (latest at the time)." }),
   ];
   const ev2 = [
     e({ url: "https://docs.acme.example/api/orders", title: "Orders API reference", domain: "docs.acme.example", publishedDate: "2026-08-20", stance: "supports", snippet: "GET /v1/orders — list orders. /v2/orders is in beta." }),
     e({ url: "https://devblog.example/acme-orders", title: "Using Acme's orders API", domain: "devblog.example", tier: 4, originKey: "docs.acme.example", publishedDate: "2026-09-01", stance: "supports", snippet: "Per Acme's docs, GET /v1/orders lists orders." }),
   ];
   const ev3 = [
-    e({ url: "https://acme.example/pricing", title: "Acme Cloud pricing", domain: "acme.example", stance: "neutral", publishedDate: null, snippet: "Starter — $20/mo · 25 GB storage" }),
+    e({ url: "https://acme.example/pricing", title: "Acme Cloud pricing", domain: "acme.example", stance: "supports", publishedDate: "2026-09-01", snippet: "Starter — $20/mo." }),
+    e({ url: "https://docs.acme.example/storage", title: "Acme Cloud storage limits", domain: "docs.acme.example", stance: "contradicts", publishedDate: "2026-09-01", snippet: "Starter includes 25 GB storage." }),
   ];
   const ev4 = [
     e({ url: "https://acme.example/about/leadership", title: "Leadership — Acme", domain: "acme.example", stance: "contradicts", publishedDate: "2026-07-01", snippet: "Chief Executive Officer: Sam Okafor" }),
     e({ url: "https://wire.example/acme-names-okafor", title: "Acme names Sam Okafor CEO", domain: "wire.example", tier: 3, stance: "contradicts", publishedDate: "2026-06-28", snippet: "…Okafor succeeds Dana Ruiz, who led the company since 2019." }),
     e({ url: "https://news-mirror.example/acme-ceo", title: "Acme gets new CEO", domain: "news-mirror.example", tier: 4, originKey: "wire.example", stance: "contradicts", publishedDate: "2026-06-29", snippet: "Reprinted from Wire: Okafor succeeds Ruiz…" }),
-    e({ url: "https://acme.example/press/2019-ruiz", title: "Acme appoints Dana Ruiz as CEO (2019)", domain: "acme.example", stance: "neutral", historical: true, publishedDate: "2019-04-02", snippet: "Acme today appointed Dana Ruiz as Chief Executive Officer." }),
+    e({ url: "https://acme.example/press/2019-ruiz", title: "Acme appoints Dana Ruiz as CEO (2019)", domain: "acme.example", stance: "supports", historical: true, publishedDate: "2019-04-02", snippet: "Acme today appointed Dana Ruiz as Chief Executive Officer." }),
   ];
   const ev5 = [
     e({ url: "https://forum.example/thread/991", title: "Breach deadlines?", domain: "forum.example", tier: 4, relevance: 0.6, stance: "contradicts", snippet: "I think it's 48 hours now?" }),
@@ -54,7 +55,7 @@ const mixed = (): Report => {
     assessClaim(c({ id: "2", text: "The /v1/orders endpoint lists orders.", category: "api_versions", freshnessRisk: "medium" }), ev2,
       j({ support: "supports", explanation: "The official API reference documents GET /v1/orders. The blog post repeats the same docs, so it is not counted as a second independent source.", uncertain: "A /v2 endpoint is in beta and may replace v1 later.", citedUrls: [ev2[0]!.url, ev2[1]!.url] }), NOW),
     assessClaim(c({ id: "3", text: "Acme Cloud's Starter plan costs $20 per month and includes 50 GB of storage.", category: "prices" }), ev3,
-      j({ support: "partially", currentValue: "$20/mo, 25 GB", whatChanged: "The price matches; the storage figure does not.", explanation: "The vendor's pricing page confirms $20/month but lists 25 GB, not 50 GB. Nothing shows 50 GB was ever offered, so we don't call it outdated.", uncertain: "The pricing page has no date.", citedUrls: [ev3[0]!.url] }), NOW),
+      j({ support: "partially", currentValue: "$20/mo, 25 GB", whatChanged: "The price matches; the storage figure does not.", explanation: "The vendor's pricing page confirms $20/month but lists 25 GB, not 50 GB. Nothing shows 50 GB was ever offered, so we don't call it outdated.", uncertain: "The pricing page has no date.", citedUrls: [ev3[0]!.url, ev3[1]!.url] }), NOW),
     assessClaim(c({ id: "4", text: "Acme's CEO is Dana Ruiz.", category: "companies_leadership" }), ev4,
       j({ support: "contradicts", currentValue: "Sam Okafor", whatChanged: "Leadership changed in June 2026.", previouslyCorrect: "yes", explanation: "The company's leadership page and a wire report name Sam Okafor. A 2019 company press release confirms Dana Ruiz was CEO before. The mirror site reprints the wire story and is not counted separately.", citedUrls: ev4.map((x) => x.url) }), NOW),
     assessClaim(c({ id: "5", text: "Under the 2024 Northland Data Act, companies must report breaches within 72 hours.", category: "laws_regulations", freshnessRisk: "medium", sourceTypeHint: "Government legislation site" }), ev5,

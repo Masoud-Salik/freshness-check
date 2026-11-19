@@ -1,84 +1,83 @@
 # FreshCheck AI 🔎
 
-**Check whether the facts in an AI-generated answer are still up to date.**
+**Check whether the facts in an AI-generated answer are still current.**
 
-AI answers can sound confident while relying on information that has changed: an old software version, an outdated price, a former company executive, or a statistic presented as current.
+FreshCheck is a claim-level freshness checker. Paste an answer, review the extracted claims, choose what deserves research, and inspect the sources behind each result.
 
-FreshCheck is a claim-level freshness assessment tool—not another chatbot. Paste an AI-generated answer, identify the facts that may change, and inspect the evidence behind every finding.
+## How it works
+
+1. Paste an answer (maximum 6,000 characters).
+2. AI extracts up to 12 atomic factual claims.
+3. Review the claims and select up to 8 to verify.
+4. Tavily searches the web for relevant evidence.
+5. The analysis model labels each source's relevance, stance and historical context.
+6. Deterministic code validates citations, source quality, independence and dates before assigning a status.
 
 ## Product principles
 
-- **Freshness is not correctness.** A claim may be wrong today without ever having been correct.
-- **Historical proof matters.** "Potentially outdated" requires dated evidence that the previous value was once accurate.
-- **Evidence dimensions stay separate.** Publisher quality, relevance, and independence are not interchangeable.
-- **Uncertainty is a valid result.** Weak, missing, or conflicting evidence should produce an unverified finding.
-- **No false precision.** Confidence is a rule-based evidence assessment, not a calibrated probability.
+- **Freshness is not correctness.** A claim may be wrong without ever having been correct.
+- **Historical proof matters.** "Potentially outdated" requires dated historical support and later contradictory evidence.
+- **Evidence dimensions stay separate.** Publisher quality, relevance and independence are not interchangeable.
+- **Uncertainty is a valid result.** Weak, missing or conflicting evidence becomes unverified.
+- **No false precision.** Confidence is a rule-based label, not a calibrated probability.
+- **Human control.** Users can review and choose claims before spending search requests.
 
-## MVP workflow
+## Current architecture
 
-1. Paste an AI-generated answer (maximum 6,000 characters).
-2. Extract up to 12 factual claims.
-3. Classify freshness risk and skip stable facts and opinions.
-4. Search for current sources for claims that need verification.
-5. Judge each claim against the collected evidence.
-6. Compute confidence and status with deterministic, tested code.
-7. Review a summary and claim-level evidence, including source dates and limitations.
+- React 19 + TypeScript + TanStack Start.
+- Server functions keep API calls and credentials out of browser code.
+- Tavily Search API retrieves current web evidence.
+- Lovable's managed AI gateway performs structured claim extraction and source assessment.
+- Deterministic scoring lives in `src/lib/freshcheck/score.ts`.
 
-The optional original-answer date helps put a statement into historical context.
+## Lovable Secrets
 
-## Current implementation status
+Add this secret in Lovable:
 
-The repository currently contains the React/TypeScript/TanStack Start interface, design system, typed report contract, demo reports, deterministic scoring rules and tests, claim-detail views, and a methodology page.
-
-The sample reports are illustrative fixtures. **Live checking is not connected yet.** Pasted text that is not a sample is not analyzed or sent anywhere by the current preview.
-
-## Planned integrations
-
-- [Tavily](https://tavily.com/) — current web search and evidence retrieval.
-- [Bifrost by Maxim AI](https://www.getbifrost.ai/) — OpenAI-compatible model gateway for claim extraction and evidence judgment.
-
-The application follows a single TypeScript/TanStack Start architecture. Integration credentials belong in server-side deployment secrets and must never be committed to this repository or exposed to browser code.
-
-### Required server-side configuration
-
-| Variable | Purpose |
+| Secret | Purpose |
 |---|---|
-| `TAVILY_API_KEY` | Tavily search authentication |
-| `BIFROST_URL` | Deployed Bifrost base URL |
-| `BIFROST_API_KEY` | Gateway authentication |
-| `EXTRACT_MODEL` | Model configured for claim extraction |
-| `JUDGE_MODEL` | Model configured for evidence judgment |
+| `TAVILY_API_KEY` | Server-side Tavily search authentication |
 
-Provider credentials are configured within Bifrost, not in the browser app.
+Lovable manages `LOVABLE_API_KEY` for its AI gateway. Do not paste it into the repository or browser code. Optional model override: `FRESHCHECK_MODEL` (server-side only).
+
+Never use `VITE_` for credentials. The browser must never receive either API key.
 
 ## Development on Windows
 
-Install the current Node.js LTS release and Git for Windows, then open PowerShell. The repository currently uses a Bun lockfile; the npm commands below avoid creating a competing package lock:
+The repository uses Bun and commits `bun.lock`.
+
+Install Bun, then open PowerShell:
 
 ```powershell
 git clone https://github.com/Masoud-Salik/freshness-check.git
 cd freshness-check
-npm install --no-package-lock
-npm run dev
+bun install --frozen-lockfile
+bun run dev
 ```
 
-Open the local URL printed by Vite. For local server secrets, copy `.env.example` to `.env` and fill values only when the matching server integration has been implemented. `.env` is ignored by Git. Never use a `VITE_` prefix for API credentials. Useful checks before pushing changes:
+Run checks before pushing:
 
 ```powershell
-npm run lint
-npm test
-npm run build
+bun run lint
+bun run test
+bun run build
 ```
 
-Bun is also present in the repository lockfile; use the package manager selected by the project maintainers consistently rather than mixing lockfiles.
+## Known limitations before competition submission
 
-## Project context
+- Publisher tiers use a conservative starter allowlist; the map needs broader, reviewed coverage and domain-specific testing.
+- Search snippets may omit important page context; high-stakes legal, medical, financial and safety claims need especially careful source review and should not be treated as professional advice.
+- Registrable-domain grouping is a heuristic and should be upgraded to a Public Suffix List implementation before treating independence as definitive.
+- Confidence labels are rules, not empirically calibrated probabilities. A benchmark is required before describing them as accuracy rates.
+- No persistent history, accounts, export, batch checking or browser extension in the MVP.
 
-FreshCheck AI was developed around the **Geek Room Global AI Hackathon 2026** challenge: building a stale-answer detector for AI applications.
+## Competition priorities
 
-## Feedback
-
-Open an issue for bugs or improvements, especially around claim extraction, evidence relevance, source provenance, historical accuracy, and transparent failure states.
+1. Build a labeled benchmark with current, contradicted, historical and ambiguous examples.
+2. Measure claim extraction precision/recall, citation correctness, outdated false-positive rate, latency and search cost.
+3. Expand and review the source-quality registry.
+4. Test failure states, keyboard navigation, mobile layouts and Windows desktop widths.
+5. Publish only after CI and end-to-end checks pass.
 
 ---
 

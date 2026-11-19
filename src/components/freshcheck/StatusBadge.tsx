@@ -1,4 +1,12 @@
-import { CheckCircle2, CircleDashed, CircleHelp, Clock, Landmark, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleDashed,
+  CircleHelp,
+  Clock,
+  Landmark,
+  SkipForward,
+  XCircle,
+} from "lucide-react";
 import type { VerificationStatus } from "@/lib/freshcheck/types";
 import { STATUS_LABEL } from "@/lib/freshcheck/labels";
 import { cn } from "@/lib/utils";
@@ -10,6 +18,7 @@ export const STATUS_STYLE: Record<VerificationStatus, { cls: string; Icon: typeo
   contradicted: { cls: "bg-status-contradicted-bg text-status-contradicted", Icon: XCircle },
   unverified: { cls: "bg-status-unverified-bg text-status-unverified", Icon: CircleHelp },
   stable: { cls: "bg-status-stable-bg text-status-stable", Icon: Landmark },
+  skipped: { cls: "bg-muted text-muted-foreground", Icon: SkipForward },
 };
 
 export function StatusBadge({ status, className }: { status: VerificationStatus; className?: string }) {

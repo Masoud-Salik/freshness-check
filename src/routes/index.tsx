@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, ChevronRight, LoaderCircle, RotateCcw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ClaimCard } from "@/components/freshcheck/ClaimCard";
@@ -7,233 +8,253 @@ import { ClaimDetail } from "@/components/freshcheck/ClaimDetail";
 import { STATUS_STYLE } from "@/components/freshcheck/StatusBadge";
 import { SAMPLES } from "@/lib/freshcheck/demo";
 import { STATUS_LABEL } from "@/lib/freshcheck/labels";
-import { STATUS_ORDER } from "@/lib/freshcheck/score";
-import type { ClaimResult, Report, VerificationStatus } from "@/lib/freshcheck/types";
+import { STATUS_ORDER, summarize } from "@/lib/freshcheck/score";
+import { extractClaims, verifyClaims, getFreshCheckStatus } from "@/lib/freshcheck/server";
+import type { Claim, ClaimResult, Report, VerificationStatus } from "@/lib/freshcheck/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "FreshCheck AI — Is this AI answer still current?" },
-      { name: "description", content: "Paste an AI-generated answer and see which facts still hold up today, with sources for every verdict." },
-      { property: "og:title", content: "FreshCheck AI — Is this AI answer still current?" },
-      { property: "og:description", content: "Claim-by-claim freshness checks for AI answers, with evidence and source links." },
-    ],
-  }),
+  head: () => ({ meta: [
+    { title: "FreshCheck AI — Is this AI answer still current?" },
+    { name: "description", content: "Check changing facts in AI answers against current web evidence, claim by claim." },
+    { property: "og:title", content: "FreshCheck AI — Is this AI answer still current?" },
+    { property: "og:description", content: "A transparent freshness check with evidence for every verdict." },
+  ] }),
   component: Checker,
 });
 
 const MAX = 6000;
-const MAX_CLAIMS = 12;
-const STEPS = ["Finding factual claims", "Sorting stable facts from time-sensitive ones", "Searching current sources", "Weighing the evidence"];
+const MAX_SELECTED = 8;
 
 function Checker() {
   const [text, setText] = useState("");
-  const [sampleId, setSampleId] = useState<string | null>(null);
   const [answerDate, setAnswerDate] = useState("");
-  const [step, setStep] = useState(-1);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [report, setReport] = useState<Report | null>(null);
   const [filter, setFilter] = useState<VerificationStatus | "all">("all");
+  const [busy, setBusy] = useState<"extract" | "verify" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [ready, setReady] = useState<boolean | null>(null);
   const [open, setOpen] = useState<ClaimResult | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const running = step >= 0;
-  const sample = SAMPLES.find((s) => s.id === sampleId && s.text === text);
 
   useEffect(() => {
-    if (!running) return;
-    if (step < STEPS.length) {
-      const t = setTimeout(() => setStep((s) => s + 1), 650);
-      return () => clearTimeout(t);
-    }
-    setReport(sample ? sample.build() : null);
-    setNotice(sample ? null : "Live checking isn't connected yet. Your text has not been checked, and no report has been generated. Try a sample to explore the report format.");
-    setStep(-1);
-    window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    return undefined;
-  }, [step, running, sample]);
+    getFreshCheckStatus().then((status) => setReady(status.searchConfigured && status.analysisConfigured)).catch(() => setReady(false));
+  }, []);
 
-  const run = () => {
+  const sample = SAMPLES.find((item) => item.text === text);
+  const selectedClaims = useMemo(() => claims.filter((claim) => selected.includes(claim.id)), [claims, selected]);
+  const checkable = claims.filter((claim) => claim.needsVerification).length;
+
+  const reset = () => {
+    setClaims([]);
+    setSelected([]);
     setReport(null);
     setNotice(null);
     setFilter("all");
-    if (!sample) {
-      setNotice("Live checking is not available yet. Your answer has not been submitted or analyzed. Choose a sample to preview a clearly labeled example report.");
-      return;
-    }
-    setStep(0);
   };
 
-  const chooseSample = (id: string, sampleText: string) => {
-    setText(sampleText);
-    setSampleId(id);
+  const runExtract = async () => {
+    reset();
+    setBusy("extract");
+    try {
+      const response = await extractClaims({ data: { text, answerDate: answerDate || null } });
+      setClaims(response.claims);
+      const defaults = response.claims.filter((claim) => claim.needsVerification).slice(0, MAX_SELECTED).map((claim) => claim.id);
+      setSelected(defaults);
+      if (!defaults.length) setNotice("No time-sensitive factual claims were identified. You can still review the extracted claims below.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "We couldn't extract claims. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runVerify = async () => {
+    if (!selectedClaims.length) return;
+    setBusy("verify");
     setReport(null);
     setNotice(null);
+    setFilter("all");
+    try {
+      const result = await verifyClaims({ data: {
+        text, answerDate: answerDate || null, claims: selectedClaims,
+      } });
+      const skipped = claims.filter((claim) => !selected.includes(claim.id)).map((claim) => ({
+        claim, evidence: [], judgment: null, confidence: "low" as const,
+        independentSources: 0, status: (claim.needsVerification ? "skipped" : "stable") as VerificationStatus, checkedAt: result.assessedAt,
+      }));
+      const combined = { ...result, results: [...result.results, ...skipped] };
+      combined.summary = summarize(combined.results);
+      setReport(combined);
+      window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "The check couldn't be completed. Please try again.");
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const shown = report?.results.filter((r) => filter === "all" || r.status === filter) ?? [];
+  const toggle = (id: string, checked: boolean) => {
+    setSelected((current) => checked
+      ? current.length < MAX_SELECTED ? [...current, id] : current
+      : current.filter((value) => value !== id));
+  };
+
+  const shown = report?.results.filter((item) => filter === "all" || item.status === filter) ?? [];
 
   return (
-    <main className="mx-auto max-w-5xl px-5">
+    <main className="mx-auto max-w-6xl px-5">
       <section className="pt-12 pb-8 sm:pt-16">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-mono text-xs uppercase tracking-widest text-primary">Freshness check for AI answers</p>
-          <span className="rounded-full border border-border bg-muted px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">MVP preview</span>
+          <p className="font-mono text-xs uppercase tracking-widest text-primary">Freshness intelligence for AI answers</p>
+          <span className="rounded-full border border-border bg-muted px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">Live beta</span>
         </div>
-        <h1 className="mt-3 max-w-3xl text-4xl font-medium leading-tight text-foreground sm:text-5xl">
-          Can you still trust the facts in this answer today?
-        </h1>
-        <p className="mt-4 max-w-2xl text-muted-foreground">
-          Paste an AI-generated answer. FreshCheck is designed to separate stable facts from claims that may have changed, then show the evidence behind each finding.
-        </p>
+        <h1 className="mt-3 max-w-3xl text-4xl font-medium leading-tight text-foreground sm:text-5xl">Is this AI answer still true today?</h1>
+        <p className="mt-4 max-w-2xl text-muted-foreground">Paste an answer. Review the factual claims. Check the ones that matter, then inspect the evidence behind every finding.</p>
+        <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground" role="status">
+          <span className={cn("size-2 rounded-full", ready === true ? "bg-status-current" : ready === false ? "bg-status-outdated" : "bg-muted-foreground/40")} />
+          {ready === true ? "Live search and analysis are configured" : ready === false ? "Live services need configuration in Lovable Secrets" : "Checking service configuration…"}
+        </div>
       </section>
 
       <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <label htmlFor="answer-input" className="text-sm font-medium text-foreground">AI-generated answer</label>
-          <span className="text-xs text-muted-foreground">Up to {MAX.toLocaleString()} characters · {MAX_CLAIMS} claims per check</span>
+          <label htmlFor="answer-input" className="text-sm font-medium text-foreground">Paste an AI-generated answer</label>
+          <span className="text-xs text-muted-foreground">Maximum {MAX.toLocaleString()} characters</span>
         </div>
-        <Textarea
-          id="answer-input"
-          value={text}
-          onChange={(e) => { setText(e.target.value.slice(0, MAX)); setSampleId(null); setReport(null); setNotice(null); }}
+        <Textarea id="answer-input" value={text}
+          onChange={(event) => { setText(event.target.value.slice(0, MAX)); reset(); }}
           placeholder="Paste an answer from ChatGPT, Claude, Gemini, or another AI assistant…"
           className="min-h-56 resize-y border-0 bg-transparent p-1 text-[0.95rem] leading-relaxed shadow-none focus-visible:ring-0"
-          aria-label="AI-generated answer"
-          aria-describedby="answer-help"
-        />
+          disabled={!!busy} aria-describedby="answer-help" />
         <div id="answer-help" className="mt-3 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
           <div className="space-y-2">
-            <label htmlFor="answer-date" className="block text-xs font-medium text-muted-foreground">When was the original answer generated? <span className="font-normal">(optional)</span></label>
-            <input id="answer-date" type="date" value={answerDate} onChange={(e) => setAnswerDate(e.target.value)}
+            <label htmlFor="answer-date" className="block text-xs font-medium text-muted-foreground">When was the original answer written? <span className="font-normal">(optional)</span></label>
+            <input id="answer-date" type="date" value={answerDate} disabled={!!busy} onChange={(event) => { setAnswerDate(event.target.value); reset(); }}
               className="h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-            <p className="text-xs text-muted-foreground">Helps distinguish information that was once accurate from information that may never have been accurate.</p>
+            <p className="text-xs text-muted-foreground">Useful for judging whether a fact changed after the answer was written.</p>
           </div>
           <div className="flex items-center justify-between gap-3 sm:justify-end">
-            <span className={cn("font-mono text-xs tabular-nums", text.length >= MAX ? "text-status-outdated" : "text-muted-foreground")}>{text.length.toLocaleString()}/{MAX.toLocaleString()}</span>
-            <Button onClick={run} disabled={running || text.trim().length < 20}>
-              {running ? "Preparing preview…" : "Check freshness"}
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">{text.length.toLocaleString()}/{MAX.toLocaleString()}</span>
+            <Button onClick={runExtract} disabled={!!busy || text.trim().length < 20}>
+              {busy === "extract" ? <><LoaderCircle className="mr-2 size-4 animate-spin" /> Finding claims…</> : "Find claims"}
+              {busy !== "extract" && <ChevronRight className="ml-2 size-4" />}
             </Button>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-          <span className="mr-1 text-xs text-muted-foreground">Explore an example:</span>
-          {SAMPLES.map((s) => (
-            <button key={s.id} onClick={() => chooseSample(s.id, s.text)}
-              aria-pressed={sampleId === s.id}
+          <span className="mr-1 text-xs text-muted-foreground">Try a sample:</span>
+          {SAMPLES.map((item) => (
+            <button key={item.id} disabled={!!busy} onClick={() => { setText(item.text); reset(); }}
               className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors",
-                sampleId === s.id ? "border-primary bg-accent text-accent-foreground" : "border-border text-foreground hover:bg-secondary")}>
-              {s.label}
+                sample?.id === item.id ? "border-primary bg-accent text-accent-foreground" : "border-border text-foreground hover:bg-secondary")}>
+              {item.label}
             </button>
           ))}
+          {sample && <button onClick={() => { const demo = sample.build(); setReport(demo); setClaims([]); setSelected([]); setNotice(null); }}
+            className="ml-auto text-xs text-primary underline-offset-2 hover:underline">Preview sample report</button>}
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">When you continue, your answer and selected claims are sent to FreshCheck’s AI and web-search providers to perform the check. They are not saved in a FreshCheck account.</p>
         </div>
       </section>
 
-      {running && (
-        <ol className="mt-6 space-y-2 rounded-lg border border-border bg-card p-4" aria-live="polite" aria-label="Demo analysis progress">
-          <li className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Previewing the report flow — sample data only</li>
-          {STEPS.map((s, i) => (
-            <li key={s} className={cn("flex items-center gap-3 text-sm", i < step ? "text-foreground" : i === step ? "text-primary" : "text-muted-foreground/60")}>
-              <span className={cn("size-1.5 rounded-full", i <= step ? "bg-primary" : "bg-border", i === step && "animate-pulse")} />
-              {s}
-            </li>
-          ))}
-        </ol>
+      {notice && <div role="status" className="mt-5 flex gap-3 rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+        <AlertCircle className="mt-0.5 size-4 shrink-0" /> <span>{notice}</span>
+      </div>}
+
+      {claims.length > 0 && checkable === 0 && !report && <div className="mt-6 rounded-md border border-border bg-muted px-4 py-4 text-sm text-muted-foreground"><p className="font-medium text-foreground">No changing factual claims need a search</p><p className="mt-1">The extracted items appear stable or non-factual. You can paste a different answer or preview a sample report.</p></div>}
+
+      {claims.length > 0 && !report && (
+        <section className="mt-8 rounded-lg border border-border bg-card p-4 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-primary">Step 2 · Review</p>
+              <h2 className="mt-1 text-2xl font-medium">Choose what to verify</h2>
+              <p className="mt-1 text-sm text-muted-foreground">We found {claims.length} claims. Uncheck anything you don't want searched.</p>
+            </div>
+            <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{selected.length}/{MAX_SELECTED} selected</span>
+          </div>
+          <div className="mt-5 space-y-2">
+            {claims.map((claim) => {
+              const checked = selected.includes(claim.id);
+              return <label key={claim.id} className={cn("flex cursor-pointer gap-3 rounded-md border p-3 transition-colors",
+                checked ? "border-primary/50 bg-accent/40" : "border-border hover:bg-secondary/50",
+                !claim.needsVerification && "opacity-75")}>
+                <input type="checkbox" checked={checked} onChange={(event) => toggle(claim.id, event.target.checked)}
+                  disabled={!claim.needsVerification || (!checked && selected.length >= MAX_SELECTED)}
+                  className="mt-1 size-4 accent-[var(--primary)]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm leading-relaxed text-foreground">{claim.text}</span>
+                  <span className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span>{claim.category.replaceAll("_", " ")}</span>
+                    <span>·</span><span>{claim.needsVerification ? claim.freshnessRisk + " freshness risk" : "Stable / opinion — no search needed"}</span>
+                  </span>
+                </span>
+                {!claim.needsVerification && <span className="text-xs text-muted-foreground">Auto-skipped</span>}
+              </label>;
+            })}
+          </div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">Up to {MAX_SELECTED} claims can be checked per run. Stable facts and opinions are not searched.</p>
+            <Button onClick={runVerify} disabled={!!busy || selected.length === 0}>
+              {busy === "verify" ? <><LoaderCircle className="mr-2 size-4 animate-spin" /> Checking evidence…</> : <><ShieldCheck className="mr-2 size-4" /> Verify {selected.length} {selected.length === 1 ? "claim" : "claims"}</>}
+            </Button>
+          </div>
+        </section>
       )}
 
       <div ref={resultsRef} className="scroll-mt-6">
         {report && (
           <section className="mt-10">
-            <div className="rounded-md border border-status-outdated/30 bg-status-outdated-bg px-4 py-2.5 text-sm text-status-outdated">
-              Sample report with illustrative evidence. It is not a live search and must not be treated as a current verification.
+            {report.demo && <div className="rounded-md border border-status-outdated/30 bg-status-outdated-bg px-4 py-2.5 text-sm text-status-outdated">Sample report · illustrative evidence only · not a live verification</div>}
+            <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-primary">{report.demo ? "Example result" : "Verification report"}</p>
+                <h2 className="mt-1 text-3xl font-medium text-foreground">{report.summary.headline}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">{report.summary.total} claims · {report.summary.checkable} checked · {report.summary.counts.stable} stable · {report.summary.counts.skipped} skipped · {(report.durationMs / 1000).toFixed(1)}s</p>
+              </div>
+              <Button variant="outline" onClick={() => { reset(); setText(""); }}><RotateCcw className="mr-2 size-4" /> New check</Button>
             </div>
-            <h2 className="mt-6 text-3xl font-medium text-foreground">{report.summary.headline}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {report.summary.total} claims found · {report.summary.checkable} checked in this example · {report.summary.counts.stable} stable, not searched
-              {answerDate ? ` · Original answer: ${answerDate}` : ""}
-            </p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>All {report.summary.total}</FilterChip>
-              {STATUS_ORDER.filter((s) => report.summary.counts[s] > 0).map((s) => {
-                const { Icon } = STATUS_STYLE[s];
-                return (
-                  <FilterChip key={s} active={filter === s} onClick={() => setFilter(s)}>
-                    <Icon className={cn("size-3.5", STATUS_STYLE[s].cls.split(" ")[1])} aria-hidden />
-                    {STATUS_LABEL[s]} {report.summary.counts[s]}
-                  </FilterChip>
-                );
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {(["current","potentially_outdated","contradicted","unverified"] as VerificationStatus[]).map((status) => {
+                const Icon = STATUS_STYLE[status].Icon;
+                return <button key={status} onClick={() => setFilter(filter === status ? "all" : status)}
+                  className={cn("rounded-md border p-3 text-left transition-colors", filter === status ? "border-primary bg-accent/50" : "border-border bg-card hover:bg-secondary/50")}>
+                  <span className="flex items-center gap-2 text-xs text-muted-foreground"><Icon className="size-3.5" />{STATUS_LABEL[status]}</span>
+                  <span className="mt-1 block text-2xl font-medium tabular-nums">{report.summary.counts[status]}</span>
+                </button>;
               })}
             </div>
-            <div className="mt-6 grid gap-4">
-              {shown.map((r) => <ClaimCard key={r.claim.id} result={r} onOpen={() => setOpen(r)} />)}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>All {report.summary.total}</FilterChip>
+              {STATUS_ORDER.filter((status) => report.summary.counts[status] > 0).map((status) => (
+                <FilterChip key={status} active={filter === status} onClick={() => setFilter(status)}>
+                  {STATUS_LABEL[status]} {report.summary.counts[status]}
+                </FilterChip>
+              ))}
             </div>
+            <div className="mt-5 grid gap-4">
+              {shown.map((result) => <ClaimCard key={result.claim.id} result={result} onOpen={() => setOpen(result)} />)}
+            </div>
+            {report.errors.length > 0 && <p className="mt-4 text-xs text-muted-foreground">Some claims could not be checked. Those results are marked unverified; no unsupported verdict was assigned.</p>}
           </section>
-        )}
-        {notice && (
-          <div role="status" className="mt-6 rounded-md border border-border bg-muted px-4 py-4 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Live verification is not connected yet</p>
-            <p className="mt-1">{notice}</p>
-          </div>
         )}
       </div>
-
-      {!report && !running && (
-        <>
-          <section className="mt-12 grid gap-6 border-t border-border pt-8 sm:grid-cols-4">
-            {[
-              ["1", "Extract", "Split the answer into small claims that can each be checked."],
-              ["2", "Triage", "Stable facts and opinions are skipped. Time-sensitive claims go on."],
-              ["3", "Research", "Look for relevant, authoritative and independent current sources."],
-              ["4", "Judge", "Compare claims with evidence, cite sources, and explain uncertainty."],
-            ].map(([n, t, d]) => (
-              <div key={n}>
-                <span className="font-mono text-xs text-primary">{n}</span>
-                <h3 className="mt-1 text-lg font-medium text-foreground">{t}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{d}</p>
-              </div>
-            ))}
-          </section>
-          <section className="mt-10 rounded-lg border border-border bg-secondary/40 p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-primary">Build status</p>
-                <h2 className="mt-1 text-lg font-medium text-foreground">A transparent preview, not a fake live checker</h2>
-              </div>
-              <span className="rounded-full bg-background px-3 py-1 text-xs text-muted-foreground">Integrations pending</span>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <StatusItem title="Interface & sample reports" detail="Ready for product review" complete />
-              <StatusItem title="Tavily web evidence" detail="Connect server-side API key" />
-              <StatusItem title="AI claim analysis" detail="Connect the Bifrost gateway" />
-            </div>
-            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">Your pasted text stays in this page in the current preview. No live search or AI analysis happens until the backend integrations are configured.</p>
-          </section>
-        </>
+      {!claims.length && !report && (
+        <section className="mt-12 grid gap-6 border-t border-border pt-8 sm:grid-cols-3">
+          {[["01","Extract","Break the answer into atomic, checkable claims."],["02","Review","Choose which claims deserve a search."],["03","Verify","Compare evidence, dates and independent origins."]].map(([number,title,description]) => (
+            <div key={number}><span className="font-mono text-xs text-primary">{number}</span><h3 className="mt-1 text-lg font-medium">{title}</h3><p className="mt-1 text-sm text-muted-foreground">{description}</p></div>
+          ))}
+        </section>
       )}
-
       <ClaimDetail result={open} onClose={() => setOpen(null)} />
     </main>
   );
 }
 
-function StatusItem({ title, detail, complete = false }: { title: string; detail: string; complete?: boolean }) {
-  return (
-    <div className="rounded-md border border-border bg-card p-3">
-      <div className="flex items-center gap-2">
-        <span className={cn("size-2 rounded-full", complete ? "bg-status-current" : "bg-muted-foreground/40")} />
-        <span className="text-sm font-medium text-foreground">{title}</span>
-      </div>
-      <p className="mt-1 pl-4 text-xs text-muted-foreground">{detail}</p>
-    </div>
-  );
-}
-
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} aria-pressed={active}
-      className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs",
-        active ? "border-foreground bg-foreground text-background" : "border-border text-foreground hover:bg-secondary")}>
-      {children}
-    </button>
-  );
+  return <button onClick={onClick} aria-pressed={active}
+    className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs",
+      active ? "border-foreground bg-foreground text-background" : "border-border text-foreground hover:bg-secondary")}>{children}</button>;
 }

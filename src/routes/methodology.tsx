@@ -70,13 +70,13 @@ function Methodology() {
 
       <H>Limitations</H>
       <ul className="mt-4 list-disc space-y-2 pl-5 text-muted-foreground">
-        <li>Confidence levels are rule-based labels, not tested probabilities.</li>
+        <li>Confidence levels are rule-based labels, not tested probabilities. Current confidence ignores historical sources when assessing present-day disagreement; historical sources are used only to establish whether a claim was once true.</li>
         <li>Search can miss the best source, rank old pages highly, or find nothing for niche topics.</li>
         <li>Claims are extracted by AI and can be split or worded imperfectly.</li>
         <li>Paywalled, very new, or non-English sources are often missed.</li>
       </ul>
       <p className="mt-8 rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-        Status: the interface and scoring rules are built. Live search and AI judging are not connected yet, so reports currently use demo data.
+        Live beta: claim extraction and evidence checks run on the server. Search results and model judgments are treated as untrusted inputs; confidence and verdicts are enforced by deterministic rules. A missing or weak source produces an unverified result, not a guess.
       </p>
     </main>
   );

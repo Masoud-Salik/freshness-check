@@ -1,4 +1,4 @@
-// Typed report contract shared by UI and (future) server pipeline.
+// Shared, serializable report contract for the UI and the server-side verification pipeline.
 
 export type ClaimCategory =
   | "technology"
@@ -26,28 +26,22 @@ export interface Claim {
   sourceTypeHint?: string;
 }
 
-/** Source quality tier from a curated publisher map, never inferred from TLD alone. 1 = best. */
 export type SourceTier = 1 | 2 | 3 | 4;
 
 export interface Evidence {
   url: string;
   title: string;
   domain: string;
-  /** Publisher quality (who wrote it). */
+  /** 1 = primary/official; 2 = institutional; 3 = established newsroom; 4 = unclassified. */
   tier: SourceTier;
-  /** How on-topic this page is for the claim, 0–1 (search relevance + judge check). Separate from quality. */
+  /** Claim-specific relevance, 0–1. */
   relevance: number;
-  /**
-   * Provenance: the origin this page reports from. If a page cites/reprints another
-   * source, originKey is that source's publisher; otherwise its own publisher.
-   * Independence = count of distinct originKeys, not distinct URLs.
-   */
+  /** Original publisher/provenance; syndicated copies should share one originKey. */
   originKey: string;
   publishedDate: string | null;
   snippet: string;
-  /** What this page says about the claim. */
   stance: "supports" | "contradicts" | "neutral";
-  /** True when the page documents the claim's value as it stood in the past (changelog, archive, dated release notes). */
+  /** The page is explicitly describing a past state, not merely being old. */
   historical: boolean;
   retrievedAt: string;
 }
@@ -56,10 +50,8 @@ export type Support = "supports" | "partially" | "contradicts" | "insufficient";
 
 export interface Judgment {
   support: Support;
-  /** Value current sources report, if different. */
   currentValue: string | null;
   whatChanged: string | null;
-  /** Did dated evidence show the claim's value WAS correct at some earlier point? Requires a historical citation. */
   previouslyCorrect: "yes" | "no" | "unknown";
   uncertain: string | null;
   explanation: string;
@@ -72,7 +64,8 @@ export type VerificationStatus =
   | "potentially_outdated"
   | "contradicted"
   | "unverified"
-  | "stable";
+  | "stable"
+  | "skipped";
 
 export interface ClaimResult {
   claim: Claim;
@@ -87,9 +80,7 @@ export interface ClaimResult {
 
 export interface Report {
   id: string;
-  /** When FreshCheck ran the assessment. */
   assessedAt: string;
-  /** When the original AI answer was produced, if the user knows it. */
   answerDate: string | null;
   results: ClaimResult[];
   summary: ReportSummary;
