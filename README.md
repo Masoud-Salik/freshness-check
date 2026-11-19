@@ -53,16 +53,16 @@ Provider credentials are configured within Bifrost, not in the browser app.
 
 ## Development on Windows
 
-Install the current Node.js LTS release and Git for Windows, then open PowerShell:
+Install the current Node.js LTS release and Git for Windows, then open PowerShell. The repository currently uses a Bun lockfile; the npm commands below avoid creating a competing package lock:
 
 ```powershell
 git clone https://github.com/Masoud-Salik/freshness-check.git
 cd freshness-check
-npm install
+npm install --no-package-lock
 npm run dev
 ```
 
-Open the local URL printed by Vite. Useful checks before pushing changes:
+Open the local URL printed by Vite. For local server secrets, copy `.env.example` to `.env` and fill values only when the matching server integration has been implemented. `.env` is ignored by Git. Never use a `VITE_` prefix for API credentials. Useful checks before pushing changes:
 
 ```powershell
 npm run lint
