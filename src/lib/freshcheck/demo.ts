@@ -40,7 +40,7 @@ const mixed = (): Report => {
     e({ url: "https://acme.example/about/leadership", title: "Leadership — Acme", domain: "acme.example", stance: "contradicts", publishedDate: "2026-07-01", snippet: "Chief Executive Officer: Sam Okafor" }),
     e({ url: "https://wire.example/acme-names-okafor", title: "Acme names Sam Okafor CEO", domain: "wire.example", tier: 3, stance: "contradicts", publishedDate: "2026-06-28", snippet: "…Okafor succeeds Dana Ruiz, who led the company since 2019." }),
     e({ url: "https://news-mirror.example/acme-ceo", title: "Acme gets new CEO", domain: "news-mirror.example", tier: 4, originKey: "wire.example", stance: "contradicts", publishedDate: "2026-06-29", snippet: "Reprinted from Wire: Okafor succeeds Ruiz…" }),
-    e({ url: "https://acme.example/press/2019-ruiz", title: "Acme appoints Dana Ruiz as CEO (2019)", domain: "acme.example", stance: "neutral", historical: true, publishedDate: "2019-04-02", snippet: "Acme today appointed Dana Ruiz as Chief Executive Officer." }),
+    e({ url: "https://acme.example/press/2019-ruiz", title: "Acme appoints Dana Ruiz as CEO (2019)", domain: "acme.example", stance: "supports", historical: true, publishedDate: "2019-04-02", snippet: "Acme today appointed Dana Ruiz as Chief Executive Officer." }),
   ];
   const ev5 = [
     e({ url: "https://forum.example/thread/991", title: "Breach deadlines?", domain: "forum.example", tier: 4, relevance: 0.6, stance: "contradicts", snippet: "I think it's 48 hours now?" }),
