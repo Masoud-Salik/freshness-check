@@ -17,7 +17,7 @@ const usable = (e: Evidence) =>
 export function independentOrigins(evidence: Evidence[], stance: Evidence["stance"]): number {
   return new Set(
     evidence
-      .filter((e) => usable(e) && e.stance === stance && e.originKey.trim())
+      .filter((e) => usable(e) && !e.historical && e.stance === stance && e.originKey.trim())
       .map((e) => e.originKey.toLowerCase()),
   ).size;
 }
@@ -26,7 +26,7 @@ export function independentOrigins(evidence: Evidence[], stance: Evidence["stanc
 function bestTierByOrigin(evidence: Evidence[], stance: Evidence["stance"]): number[] {
   const tiers = new Map<string, number>();
   for (const item of evidence) {
-    if (!usable(item) || item.stance !== stance || !item.originKey.trim()) continue;
+    if (!usable(item) || item.historical || item.stance !== stance || !item.originKey.trim()) continue;
     const origin = item.originKey.toLowerCase();
     tiers.set(origin, Math.min(tiers.get(origin) ?? 5, item.tier));
   }
