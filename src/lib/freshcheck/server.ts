@@ -192,7 +192,7 @@ export const verifyClaims = createServerFn({ method: "POST" })
     const started = Date.now();
     const checkedAt = new Date().toISOString();
     const results: ClaimResult[] = await mapLimit(data.claims, 3, async (claim): Promise<ClaimResult> => {
-      if (!claim.needsVerification) return { claim, evidence:[], judgment:null, confidence:"high", independentSources:0, status:"stable", checkedAt };
+      if (!claim.isFactual || !claim.timeSensitive || !claim.needsVerification) return { claim, evidence:[], judgment:null, confidence:"high", independentSources:0, status:"stable", checkedAt };
       try {
         const found = await search(claim);
         const judged = await judge(claim, found, data.answerDate ?? null);
