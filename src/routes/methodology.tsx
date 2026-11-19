@@ -70,7 +70,7 @@ function Methodology() {
 
       <H>Limitations</H>
       <ul className="mt-4 list-disc space-y-2 pl-5 text-muted-foreground">
-        <li>Confidence levels are rule-based labels, not tested probabilities.</li>
+        <li>Confidence levels are rule-based labels, not tested probabilities. Current confidence ignores historical sources when assessing present-day disagreement; historical sources are used only to establish whether a claim was once true.</li>
         <li>Search can miss the best source, rank old pages highly, or find nothing for niche topics.</li>
         <li>Claims are extracted by AI and can be split or worded imperfectly.</li>
         <li>Paywalled, very new, or non-English sources are often missed.</li>
