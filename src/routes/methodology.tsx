@@ -76,7 +76,7 @@ function Methodology() {
         <li>Paywalled, very new, or non-English sources are often missed.</li>
       </ul>
       <p className="mt-8 rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-        Status: the interface and scoring rules are built. Live search and AI judging are not connected yet, so reports currently use demo data.
+        Live beta: claim extraction and evidence checks run on the server. Search results and model judgments are treated as untrusted inputs; confidence and verdicts are enforced by deterministic rules. A missing or weak source produces an unverified result, not a guess.
       </p>
     </main>
   );
