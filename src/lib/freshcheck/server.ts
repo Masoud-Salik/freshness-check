@@ -88,7 +88,7 @@ export const extractClaims = createServerFn({ method: "POST" })
   });
 
 function sourceTier(host: string): SourceTier {
-  const domain = host.toLowerCase().replace(/^www\\./, "");
+  const domain = host.toLowerCase().replace(/^www\./, "");
   const matches = (list: string[]) => list.some((d) => domain === d || domain.endsWith("." + d));
   if (["gov","mil"].includes(domain.split(".").pop() || "") || matches(["gov.uk","europa.eu","who.int","un.org","worldbank.org","oecd.org","nist.gov","nih.gov","sec.gov","congress.gov"])) return 1;
   if (domain.endsWith(".edu") || matches(["arxiv.org","nature.com","science.org","ieee.org","acm.org","imf.org","ilo.org"])) return 2;
@@ -103,7 +103,7 @@ function safeUrl(value: unknown): URL | null {
   } catch { return null; }
 }
 function origin(host: string): string {
-  const parts = host.toLowerCase().replace(/^www\\./, "").split(".");
+  const parts = host.toLowerCase().replace(/^www\./, "").split(".");
   return parts.length <= 2 ? parts.join(".") : parts.slice(-2).join(".");
 }
 
@@ -126,10 +126,10 @@ async function search(claim: Claim): Promise<Evidence[]> {
     return (payload.results || []).flatMap((row) => {
       const url = safeUrl(row.url);
       if (!url) return [];
-      const date = row.published_date && /^\\d{4}-\\d{2}-\\d{2}/.test(row.published_date) ? row.published_date.slice(0,10) : null;
+      const date = row.published_date && /^\d{4}-\d{2}-\d{2}/.test(row.published_date) ? row.published_date.slice(0,10) : null;
       return [{
         url: url.toString(), title: str(row.title, 240) || url.hostname,
-        domain: url.hostname.replace(/^www\\./, ""), tier: sourceTier(url.hostname),
+        domain: url.hostname.replace(/^www\./, ""), tier: sourceTier(url.hostname),
         relevance: typeof row.score === "number" ? Math.max(0, Math.min(1, row.score)) : 0,
         originKey: origin(url.hostname), publishedDate: date, snippet: str(row.content, 1200) || "",
         stance: "neutral" as const, historical: false, retrievedAt: new Date().toISOString(),
