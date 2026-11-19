@@ -120,13 +120,6 @@ export function sanitizeJudgment(
       isDatedBefore(item.publishedDate, answerDate ?? checkedAt),
   );
 
-  const historicalContradiction = cited.some(
-    (item) =>
-      item.historical &&
-      item.stance === "contradicts" &&
-      isDatedBefore(item.publishedDate, answerDate ?? checkedAt),
-  );
-
   const newerContradiction = cited.some((item) => {
     if (item.stance !== "contradicts" || !item.publishedDate) return false;
     const boundary = answerDate ?? (
@@ -140,7 +133,6 @@ export function sanitizeJudgment(
 
   let previouslyCorrect: Judgment["previouslyCorrect"] = "unknown";
   if (historicalSupport && newerContradiction) previouslyCorrect = "yes";
-  else if (historicalContradiction && !historicalSupport) previouslyCorrect = "no";
 
   return { ...judgment, previouslyCorrect, citedUrls };
 }
