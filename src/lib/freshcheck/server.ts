@@ -7,7 +7,7 @@ const MAX_TEXT = 6000;
 const MAX_CLAIMS = 12;
 const MAX_SELECTED = 8;
 const MODEL_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL_NAME = process.env.FRESHCHECK_MODEL || "google/gemini-2.5-flash";
+function modelName() { return process.env.FRESHCHECK_MODEL || "google/gemini-2.5-flash"; }
 
 const extractSchema = z.object({ text: z.string().trim().min(20).max(MAX_TEXT), answerDate: z.string().date().nullable().optional() });
 const verifySchema = z.object({
@@ -29,14 +29,15 @@ function secret(name: string): string {
 }
 
 async function completion(system: string, user: string, maxTokens: number): Promise<Record<string, unknown>> {
+  const apiKey = secret("LOVABLE_API_KEY");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
   try {
     const response = await fetch(MODEL_URL, {
       method: "POST", signal: controller.signal,
-      headers: { Authorization: "Bearer " + secret("LOVABLE_API_KEY"), "Content-Type": "application/json" },
+      headers: { Authorization: "Bearer " + apiKey, "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "tanstack-ai", "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL_NAME, temperature: 0, max_tokens: maxTokens,
+        model: modelName(), temperature: 0, max_tokens: maxTokens,
         response_format: { type: "json_object" },
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
       }),
@@ -104,7 +105,9 @@ function safeUrl(value: unknown): URL | null {
 }
 function origin(host: string): string {
   const parts = host.toLowerCase().replace(/^www\./, "").split(".");
-  return parts.length <= 2 ? parts.join(".") : parts.slice(-2).join(".");
+  const suffix = parts.slice(-2).join(".");
+  const compoundSuffixes = new Set(["co.uk","org.uk","ac.uk","gov.uk","com.au","net.au","org.au","co.nz","co.jp","com.br","com.cn","com.sg","co.in"]);
+  return compoundSuffixes.has(suffix) && parts.length >= 3 ? parts.slice(-3).join(".") : parts.length <= 2 ? host.toLowerCase().replace(/^www\./, "") : parts.slice(-2).join(".");
 }
 
 async function search(claim: Claim): Promise<Evidence[]> {
@@ -188,7 +191,7 @@ export const verifyClaims = createServerFn({ method: "POST" })
     secret("TAVILY_API_KEY"); secret("LOVABLE_API_KEY");
     const started = Date.now();
     const checkedAt = new Date().toISOString();
-    const results: ClaimResult[] = await mapLimit(data.claims, 3, async (claim) => {
+    const results: ClaimResult[] = await mapLimit(data.claims, 3, async (claim): Promise<ClaimResult> => {
       if (!claim.needsVerification) return { claim, evidence:[], judgment:null, confidence:"high", independentSources:0, status:"stable", checkedAt };
       try {
         const found = await search(claim);
