@@ -83,7 +83,7 @@ function Checker() {
       } });
       const skipped = claims.filter((claim) => !selected.includes(claim.id)).map((claim) => ({
         claim, evidence: [], judgment: null, confidence: "low" as const,
-        independentSources: 0, status: "skipped" as const, checkedAt: result.assessedAt,
+        independentSources: 0, status: (claim.needsVerification ? "skipped" : "stable") as VerificationStatus, checkedAt: result.assessedAt,
       }));
       const combined = { ...result, results: [...result.results, ...skipped] };
       const counts = { ...result.summary.counts, skipped: skipped.length };
