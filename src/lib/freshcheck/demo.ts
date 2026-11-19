@@ -26,7 +26,7 @@ const mixed = (): Report => {
   const ev1 = [
     e({ url: "https://fetchkit.dev/changelog", title: "fetchkit changelog", domain: "fetchkit.dev", publishedDate: "2026-10-02", stance: "contradicts", snippet: "4.0.0 (2026-10-02): new streaming API. 3.2.0 (2025-03-11)…" }),
     e({ url: "https://registry.example/pkg/fetchkit", title: "fetchkit — package registry", domain: "registry.example", tier: 2, publishedDate: "2026-10-02", stance: "contradicts", snippet: "Latest version: 4.0.1" }),
-    e({ url: "https://fetchkit.dev/changelog#3.2.0", title: "fetchkit 3.2.0 release notes", domain: "fetchkit.dev", publishedDate: "2025-03-11", stance: "neutral", historical: true, snippet: "3.2.0 released 2025-03-11 (latest at the time)." }),
+    e({ url: "https://fetchkit.dev/changelog#3.2.0", title: "fetchkit 3.2.0 release notes", domain: "fetchkit.dev", publishedDate: "2025-03-11", stance: "supports", historical: true, snippet: "3.2.0 released 2025-03-11 (latest at the time)." }),
   ];
   const ev2 = [
     e({ url: "https://docs.acme.example/api/orders", title: "Orders API reference", domain: "docs.acme.example", publishedDate: "2026-08-20", stance: "supports", snippet: "GET /v1/orders — list orders. /v2/orders is in beta." }),
@@ -55,7 +55,7 @@ const mixed = (): Report => {
     assessClaim(c({ id: "2", text: "The /v1/orders endpoint lists orders.", category: "api_versions", freshnessRisk: "medium" }), ev2,
       j({ support: "supports", explanation: "The official API reference documents GET /v1/orders. The blog post repeats the same docs, so it is not counted as a second independent source.", uncertain: "A /v2 endpoint is in beta and may replace v1 later.", citedUrls: [ev2[0]!.url, ev2[1]!.url] }), NOW),
     assessClaim(c({ id: "3", text: "Acme Cloud's Starter plan costs $20 per month and includes 50 GB of storage.", category: "prices" }), ev3,
-      j({ support: "partially", currentValue: "$20/mo, 25 GB", whatChanged: "The price matches; the storage figure does not.", explanation: "The vendor's pricing page confirms $20/month but lists 25 GB, not 50 GB. Nothing shows 50 GB was ever offered, so we don't call it outdated.", uncertain: "The pricing page has no date.", citedUrls: [ev3[0]!.url] }), NOW),
+      j({ support: "partially", currentValue: "$20/mo, 25 GB", whatChanged: "The price matches; the storage figure does not.", explanation: "The vendor's pricing page confirms $20/month but lists 25 GB, not 50 GB. Nothing shows 50 GB was ever offered, so we don't call it outdated.", uncertain: "The pricing page has no date.", citedUrls: [ev3[0]!.url, ev3[1]!.url] }), NOW),
     assessClaim(c({ id: "4", text: "Acme's CEO is Dana Ruiz.", category: "companies_leadership" }), ev4,
       j({ support: "contradicts", currentValue: "Sam Okafor", whatChanged: "Leadership changed in June 2026.", previouslyCorrect: "yes", explanation: "The company's leadership page and a wire report name Sam Okafor. A 2019 company press release confirms Dana Ruiz was CEO before. The mirror site reprints the wire story and is not counted separately.", citedUrls: ev4.map((x) => x.url) }), NOW),
     assessClaim(c({ id: "5", text: "Under the 2024 Northland Data Act, companies must report breaches within 72 hours.", category: "laws_regulations", freshnessRisk: "medium", sourceTypeHint: "Government legislation site" }), ev5,
