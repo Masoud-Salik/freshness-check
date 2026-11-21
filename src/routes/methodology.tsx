@@ -9,6 +9,8 @@ export const Route = createFileRoute("/methodology")({
       { name: "description", content: "How FreshCheck AI separates freshness risk, evidence support and confidence, and what its limits are." },
       { property: "og:title", content: "Methodology — FreshCheck AI" },
       { property: "og:description", content: "Definitions, thresholds and limitations behind every FreshCheck verdict." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Methodology,
@@ -54,7 +56,7 @@ function Methodology() {
       <ul className="mt-4 list-disc space-y-2 pl-5 text-muted-foreground">
         <li><b className="text-foreground">Quality</b> is about who published it: official/primary, institutional, reputable news, or other. We use a curated list of publishers. A web address ending in .gov or .edu alone doesn't make a source trustworthy.</li>
         <li><b className="text-foreground">Relevance</b> is about whether the page is actually about this claim. Off-topic pages are ignored however good the publisher.</li>
-        <li><b className="text-foreground">Independence</b> means each page is traced to the source it reports from. If two sites repeat the same press release or wire story, they count as one source.</li>
+        <li><b className="text-foreground">Independence</b> uses explicit source attribution in retrieved snippets. Primary and institutional publishers use their own origin unless attribution identifies another source. Other pages with unresolved provenance share one unknown origin, so untraced copies cannot inflate confidence.</li>
         <li>Newer isn't automatically better. Dates help decide what is current, but a recent page can still be wrong.</li>
       </ul>
 
@@ -74,9 +76,12 @@ function Methodology() {
         <li>Search can miss the best source, rank old pages highly, or find nothing for niche topics.</li>
         <li>Claims are extracted by AI and can be split or worded imperfectly.</li>
         <li>Paywalled, very new, or non-English sources are often missed.</li>
+        <li>Research uses up to two Tavily searches per time-sensitive claim: current evidence and historical context. Exact quoted snippets are required before a source contributes to a verdict.</li>
+        <li>Historical proof needs a past date present in the retrieved evidence and a quoted historical passage. Search snippets may omit that proof; in those cases a claim is not labeled potentially outdated.</li>
+        <li>The curated publisher list is deliberately small. Unlisted publishers receive the lowest quality tier; unknown provenance is handled conservatively.</li>
       </ul>
       <p className="mt-8 rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-        Status: the interface and scoring rules are built. Live search and AI judging are not connected yet, so reports currently use demo data.
+        Live checks use Tavily for web evidence and Bifrost for claim extraction and judging, with fixed rules computing statuses. Both services must be configured. Sample reports are explicitly labeled; evaluation metrics have not yet been published.
       </p>
     </main>
   );

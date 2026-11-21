@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ClaimCard } from "@/components/freshcheck/ClaimCard";
@@ -10,6 +12,10 @@ import { STATUS_LABEL } from "@/lib/freshcheck/labels";
 import { STATUS_ORDER } from "@/lib/freshcheck/score";
 import type { ClaimResult, Report, VerificationStatus } from "@/lib/freshcheck/types";
 import { cn } from "@/lib/utils";
+import { readinessOptions } from "@/lib/freshcheck/readiness";
+import { extractClaims, verifyClaim, testTavilyConnection } from "@/lib/freshcheck/verification.functions";
+import { buildLiveReport } from "@/lib/freshcheck/pipeline";
+import { MAX_CHARACTERS, MAX_CLAIMS } from "@/lib/freshcheck/schemas";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -18,16 +24,23 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Paste an AI-generated answer and see which facts still hold up today, with sources for every verdict." },
       { property: "og:title", content: "FreshCheck AI — Is this AI answer still current?" },
       { property: "og:description", content: "Claim-by-claim freshness checks for AI answers, with evidence and source links." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(readinessOptions),
   component: Checker,
 });
 
-const MAX = 6000;
-const MAX_CLAIMS = 12;
+const MAX = MAX_CHARACTERS;
 const STEPS = ["Finding factual claims", "Sorting stable facts from time-sensitive ones", "Searching current sources", "Weighing the evidence"];
 
 function Checker() {
+  const readiness = useSuspenseQuery(readinessOptions);
+  const liveReady = readiness.data.tavily && readiness.data.bifrost;
+  const extract = useServerFn(extractClaims);
+  const verify = useServerFn(verifyClaim);
+  const testTavily = useServerFn(testTavilyConnection);
   const [text, setText] = useState("");
   const [sampleId, setSampleId] = useState<string | null>(null);
   const [answerDate, setAnswerDate] = useState("");
@@ -36,32 +49,50 @@ function Checker() {
   const [filter, setFilter] = useState<VerificationStatus | "all">("all");
   const [notice, setNotice] = useState<string | null>(null);
   const [open, setOpen] = useState<ClaimResult | null>(null);
+  const [progress, setProgress] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [tavilyTest, setTavilyTest] = useState<{ sources: { url: string; title: string }[]; error: string | null } | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const running = step >= 0;
   const sample = SAMPLES.find((s) => s.id === sampleId && s.text === text);
 
-  useEffect(() => {
-    if (!running) return;
-    if (step < STEPS.length) {
-      const t = setTimeout(() => setStep((s) => s + 1), 650);
-      return () => clearTimeout(t);
-    }
-    setReport(sample ? sample.build() : null);
-    setNotice(sample ? null : "Live checking isn't connected yet. Your text has not been checked, and no report has been generated. Try a sample to explore the report format.");
-    setStep(-1);
-    window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    return undefined;
-  }, [step, running, sample]);
-
-  const run = () => {
+  const run = async () => {
+    const startedAt = Date.now();
     setReport(null);
     setNotice(null);
     setFilter("all");
-    if (!sample) {
-      setNotice("Live checking is not available yet. Your answer has not been submitted or analyzed. Choose a sample to preview a clearly labeled example report.");
-      return;
-    }
+    setOpen(null);
+    setProgress("");
     setStep(0);
+    try {
+      const status = await readiness.refetch();
+      if (!status.data?.tavily || !status.data.bifrost) {
+        if (sample) setReport({ ...sample.build(), answerDate: answerDate || null });
+        else setNotice("Live checking needs both Tavily and a deployed Bifrost gateway. Your answer has not been sent for analysis. You can still preview a labeled sample report.");
+        return;
+      }
+      const extracted = await extract({ data: { text, answerDate: answerDate || null } });
+      if (extracted.error) { setNotice(extracted.error); return; }
+      setStep(2);
+      setProgress(`Checking 0 of ${extracted.claims.length} claims`);
+      const result = await buildLiveReport(extracted.claims, answerDate || null,
+        (claim) => verify({ data: { claim, answerDate: answerDate || null } }),
+        (completed, total) => { setStep(3); setProgress(`Checked ${completed} of ${total} claims`); }, startedAt);
+      setReport(result);
+    } catch {
+      setNotice("Verification could not finish. Check the original-answer date and try again. No report was invented.");
+    } finally {
+      setStep(-1);
+      window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  };
+
+  const testEvidence = async () => {
+    setTesting(true);
+    setTavilyTest(null);
+    try { setTavilyTest(await testTavily()); }
+    catch { setTavilyTest({ sources: [], error: "The Tavily connection test could not finish. Please retry." }); }
+    finally { setTesting(false); await readiness.refetch(); }
   };
 
   const chooseSample = (id: string, sampleText: string) => {
@@ -78,7 +109,7 @@ function Checker() {
       <section className="pt-12 pb-8 sm:pt-16">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-mono text-xs uppercase tracking-widest text-primary">Freshness check for AI answers</p>
-          <span className="rounded-full border border-border bg-muted px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">MVP preview</span>
+          <span className="rounded-full border border-border bg-muted px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">{liveReady ? "Live verification" : "Configuration pending"}</span>
         </div>
         <h1 className="mt-3 max-w-3xl text-4xl font-medium leading-tight text-foreground sm:text-5xl">
           Can you still trust the facts in this answer today?
@@ -95,6 +126,7 @@ function Checker() {
         </div>
         <Textarea
           id="answer-input"
+          disabled={running}
           value={text}
           onChange={(e) => { setText(e.target.value.slice(0, MAX)); setSampleId(null); setReport(null); setNotice(null); }}
           placeholder="Paste an answer from ChatGPT, Claude, Gemini, or another AI assistant…"
@@ -105,33 +137,33 @@ function Checker() {
         <div id="answer-help" className="mt-3 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
           <div className="space-y-2">
             <label htmlFor="answer-date" className="block text-xs font-medium text-muted-foreground">When was the original answer generated? <span className="font-normal">(optional)</span></label>
-            <input id="answer-date" type="date" value={answerDate} onChange={(e) => setAnswerDate(e.target.value)}
+            <input id="answer-date" type="date" disabled={running} value={answerDate} onChange={(e) => setAnswerDate(e.target.value)}
               className="h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             <p className="text-xs text-muted-foreground">Helps distinguish information that was once accurate from information that may never have been accurate.</p>
           </div>
           <div className="flex items-center justify-between gap-3 sm:justify-end">
             <span className={cn("font-mono text-xs tabular-nums", text.length >= MAX ? "text-status-outdated" : "text-muted-foreground")}>{text.length.toLocaleString()}/{MAX.toLocaleString()}</span>
             <Button onClick={run} disabled={running || text.trim().length < 20}>
-              {running ? "Preparing preview…" : "Check freshness"}
+              {running ? "Checking…" : sample && !liveReady ? "Preview sample report" : "Check freshness"}
             </Button>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
           <span className="mr-1 text-xs text-muted-foreground">Explore an example:</span>
           {SAMPLES.map((s) => (
-            <button key={s.id} onClick={() => chooseSample(s.id, s.text)}
+            <Button variant="outline" size="sm" disabled={running} key={s.id} onClick={() => chooseSample(s.id, s.text)}
               aria-pressed={sampleId === s.id}
               className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors",
                 sampleId === s.id ? "border-primary bg-accent text-accent-foreground" : "border-border text-foreground hover:bg-secondary")}>
               {s.label}
-            </button>
+            </Button>
           ))}
         </div>
       </section>
 
       {running && (
-        <ol className="mt-6 space-y-2 rounded-lg border border-border bg-card p-4" aria-live="polite" aria-label="Demo analysis progress">
-          <li className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Previewing the report flow — sample data only</li>
+        <ol className="mt-6 space-y-2 rounded-lg border border-border bg-card p-4" aria-live="polite" aria-label="Verification progress">
+          <li className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{progress || "Preparing verification"}</li>
           {STEPS.map((s, i) => (
             <li key={s} className={cn("flex items-center gap-3 text-sm", i < step ? "text-foreground" : i === step ? "text-primary" : "text-muted-foreground/60")}>
               <span className={cn("size-1.5 rounded-full", i <= step ? "bg-primary" : "bg-border", i === step && "animate-pulse")} />
@@ -144,13 +176,15 @@ function Checker() {
       <div ref={resultsRef} className="scroll-mt-6">
         {report && (
           <section className="mt-10">
-            <div className="rounded-md border border-status-outdated/30 bg-status-outdated-bg px-4 py-2.5 text-sm text-status-outdated">
+            {report.demo && <div className="rounded-md border border-status-outdated/30 bg-status-outdated-bg px-4 py-2.5 text-sm text-status-outdated">
               Sample report with illustrative evidence. It is not a live search and must not be treated as a current verification.
-            </div>
+            </div>}
+            {!report.demo && <p className="text-xs text-muted-foreground">Assessed {new Date(report.assessedAt).toLocaleString()} · Tavily evidence · Bifrost analysis</p>}
+            {report.errors.length > 0 && <p role="status" className="mt-3 text-sm text-status-outdated">{report.errors.length} claims could not be fully checked. They remain unverified.</p>}
             <h2 className="mt-6 text-3xl font-medium text-foreground">{report.summary.headline}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {report.summary.total} claims found · {report.summary.checkable} checked in this example · {report.summary.counts.stable} stable, not searched
-              {answerDate ? ` · Original answer: ${answerDate}` : ""}
+              {report.summary.total} claims found · {report.summary.checkable} {report.demo ? "checked in this example" : "selected for verification"} · {report.summary.counts.stable} stable, not searched
+              {report.answerDate ? ` · Original answer: ${report.answerDate}` : ""}
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>All {report.summary.total}</FilterChip>
@@ -171,7 +205,7 @@ function Checker() {
         )}
         {notice && (
           <div role="status" className="mt-6 rounded-md border border-border bg-muted px-4 py-4 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Live verification is not connected yet</p>
+            <p className="font-medium text-foreground">Your answer has not been verified</p>
             <p className="mt-1">{notice}</p>
           </div>
         )}
@@ -197,16 +231,21 @@ function Checker() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-primary">Build status</p>
-                <h2 className="mt-1 text-lg font-medium text-foreground">A transparent preview, not a fake live checker</h2>
+                <h2 className="mt-1 text-lg font-medium text-foreground">Verification connections</h2>
               </div>
-              <span className="rounded-full bg-background px-3 py-1 text-xs text-muted-foreground">Integrations pending</span>
+              <span className="rounded-full bg-background px-3 py-1 text-xs text-muted-foreground">{liveReady ? "Configured for live checks" : "Setup incomplete"}</span>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <StatusItem title="Interface & sample reports" detail="Ready for product review" complete />
-              <StatusItem title="Tavily web evidence" detail="Connect server-side API key" />
-              <StatusItem title="AI claim analysis" detail="Connect the Bifrost gateway" />
+              <StatusItem title="Tavily web evidence" detail={readiness.data.tavily ? "API key securely configured" : "API key required"} complete={readiness.data.tavily} />
+              <StatusItem title="AI claim analysis" detail={readiness.data.bifrost ? "Bifrost gateway configured" : "Bifrost deployment required"} complete={readiness.data.bifrost} />
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">Your pasted text stays in this page in the current preview. No live search or AI analysis happens until the backend integrations are configured.</p>
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{liveReady ? "When you check an answer, its text is sent to Bifrost and claim queries are sent to Tavily. Reports are not saved." : "Pasted answers are not sent for analysis until both connections are configured. Sample reports remain illustrative."}</p>
+            <Button className="mt-4" variant="outline" size="sm" onClick={testEvidence} disabled={testing || !readiness.data.tavily}>{testing ? "Testing Tavily…" : "Test Tavily connection"}</Button>
+            {tavilyTest && <div role="status" className="mt-3 text-sm">
+              <p className={tavilyTest.error ? "text-status-outdated" : "text-status-current"}>{tavilyTest.error || `Tavily returned ${tavilyTest.sources.length} sources for a React release search.`}</p>
+              <ul className="mt-2 space-y-1">{tavilyTest.sources.map((source) => <li key={source.url}><a className="text-primary underline underline-offset-2" href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a></li>)}</ul>
+            </div>}
           </section>
         </>
       )}
@@ -230,10 +269,10 @@ function StatusItem({ title, detail, complete = false }: { title: string; detail
 
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} aria-pressed={active}
+    <Button variant="outline" size="sm" onClick={onClick} aria-pressed={active}
       className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs",
         active ? "border-foreground bg-foreground text-background" : "border-border text-foreground hover:bg-secondary")}>
       {children}
-    </button>
+    </Button>
   );
 }
