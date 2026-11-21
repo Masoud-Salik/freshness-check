@@ -9,7 +9,7 @@
 
 ## Live verification
 - [ ] Connect live checker and prepare the secure Tavily key form (current request)
-- [ ] Bifrost live — requires deployed gateway URL, gateway key and configured model provider
+- [ ] Bifrost live — user confirmed not deployed; requires deployed gateway URL, gateway key and configured model provider
 - [ ] Claim extraction via Bifrost with schema validation and 12-claim cap
 - [ ] Tavily evidence search, search planning and source provenance — requires server-side Tavily secret
 - [ ] Per-claim judging, citation allow-list validation and deterministic scoring
