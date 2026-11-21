@@ -8,6 +8,7 @@
 - [ ] Desktop QA at 1280px, 1440px and 1920px; keyboard-only and screen-reader pass
 
 ## Live verification
+- [ ] Connect live checker and prepare the secure Tavily key form (current request)
 - [ ] Bifrost live — requires deployed gateway URL, gateway key and configured model provider
 - [ ] Claim extraction via Bifrost with schema validation and 12-claim cap
 - [ ] Tavily evidence search, search planning and source provenance — requires server-side Tavily secret
